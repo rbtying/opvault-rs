@@ -5,14 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use std::rc::Rc;
-use super::Result;
-use super::{Profile, Folder, Item, Uuid, MasterKey, OverviewKey};
-use super::{folder, profile, item, attachment, crypto, opdata01};
-use super::item::{ItemData, ItemIterator};
 use super::attachment::AttachmentData;
+use super::item::{ItemData, ItemIterator};
+use super::Result;
+use super::{attachment, crypto, folder, item, opdata01, profile};
+use super::{Folder, Item, MasterKey, OverviewKey, Profile, Uuid};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 /// A locked vault has just been created and has not loaded any items or
 /// attachments. It contains just enough information to try to unseal it.
@@ -47,12 +47,24 @@ impl LockedVault {
     /// password. The master keys can be used to retrieve item details and the
     /// overview keys decrypt item and folder overview data.
     fn decrypt_keys(&self, password: &[u8]) -> Result<(MasterKey, OverviewKey)> {
-        let key = try!(crypto::pbkdf2(password, &self.profile.salt[..], self.profile.iterations as usize));
+        let key = try!(crypto::pbkdf2(
+            password,
+            &self.profile.salt[..],
+            self.profile.iterations as usize
+        ));
         let decrypt_key = &key[..32];
         let hmac_key = &key[32..];
 
-        let master_key = try!(derive_key(&self.profile.master_key[..], decrypt_key, hmac_key));
-        let overview_key = try!(derive_key(&self.profile.overview_key[..], decrypt_key, hmac_key));
+        let master_key = try!(derive_key(
+            &self.profile.master_key[..],
+            decrypt_key,
+            hmac_key
+        ));
+        let overview_key = try!(derive_key(
+            &self.profile.overview_key[..],
+            decrypt_key,
+            hmac_key
+        ));
 
         Ok((master_key.into(), overview_key.into()))
     }
@@ -90,8 +102,16 @@ impl UnlockedVault {
     /// Read the encrypted data in a vault. We assume the profile is "default"
     /// which is the only one currently in use. This is primarily for use by
     /// `LockedVault`'s `unlock` method.
-    fn new(base: PathBuf, profile: Profile, master: Rc<MasterKey>, overview: Rc<OverviewKey>) -> Result<UnlockedVault> {
-        let folders = try!(folder::read_folders(&base.join("folders.js"), overview.clone()));
+    fn new(
+        base: PathBuf,
+        profile: Profile,
+        master: Rc<MasterKey>,
+        overview: Rc<OverviewKey>,
+    ) -> Result<UnlockedVault> {
+        let folders = try!(folder::read_folders(
+            &base.join("folders.js"),
+            overview.clone()
+        ));
         let attachments = try!(attachment::read_attachments(&base));
         let items = try!(item::read_items(&base, overview.clone()));
 
@@ -109,7 +129,12 @@ impl UnlockedVault {
     pub fn get_item(&self, id: &Uuid) -> Option<Item> {
         let data = self.items.get(id);
         if let Some(item_data) = data {
-            item::item_from_data(item_data, &self.attachments, self.master.clone(), self.overview.clone()).ok()
+            item::item_from_data(
+                item_data,
+                &self.attachments,
+                self.master.clone(),
+                self.overview.clone(),
+            ).ok()
         } else {
             None
         }

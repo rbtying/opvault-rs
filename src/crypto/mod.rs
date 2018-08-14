@@ -9,4 +9,4 @@
 //! CommonCrypto on macOS instead of OpenSSL.
 
 mod openssl;
-pub use self::openssl::{verify_data, decrypt_data, hmac, hash_sha512, pbkdf2, Error};
+pub use self::openssl::{decrypt_data, hash_sha512, hmac, pbkdf2, verify_data, Error};

@@ -33,16 +33,14 @@ impl Key {
 
 impl From<Vec<u8>> for Key {
     fn from(v: Vec<u8>) -> Self {
-        Key {
-            v: v,
-        }
+        Key { v: v }
     }
 }
 
 /// Alias we use to indicate we expect the master key
 #[derive(Debug)]
 pub struct MasterKey {
-    key: Key
+    key: Key,
 }
 
 impl Deref for MasterKey {
@@ -55,18 +53,14 @@ impl Deref for MasterKey {
 
 impl From<Vec<u8>> for MasterKey {
     fn from(v: Vec<u8>) -> Self {
-        Self {
-            key: Key {
-                v: v,
-            }
-        }
+        Self { key: Key { v: v } }
     }
 }
 
 /// Alias we use to indicate we expect the overview key
 #[derive(Debug)]
 pub struct OverviewKey {
-    key: Key
+    key: Key,
 }
 
 impl Deref for OverviewKey {
@@ -79,18 +73,14 @@ impl Deref for OverviewKey {
 
 impl From<Vec<u8>> for OverviewKey {
     fn from(v: Vec<u8>) -> Self {
-        Self {
-            key: Key {
-                v: v,
-            }
-        }
+        Self { key: Key { v: v } }
     }
 }
 
 /// Alias we use to indicate we expect an item's key
 #[derive(Debug)]
 pub struct ItemKey {
-    key: Key
+    key: Key,
 }
 
 impl Deref for ItemKey {
@@ -103,10 +93,6 @@ impl Deref for ItemKey {
 
 impl From<Vec<u8>> for ItemKey {
     fn from(v: Vec<u8>) -> Self {
-        Self {
-            key: Key {
-                v: v,
-            }
-        }
+        Self { key: Key { v: v } }
     }
 }

@@ -5,13 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::path::Path;
 use std::fs::File;
 use std::io::prelude::*;
+use std::path::Path;
 
+use super::Result;
 use base64;
 use serde_json;
-use super::{Result};
 
 /// The profile data from the file, the names match the keys in the file.
 #[derive(Debug, Deserialize)]
@@ -43,7 +43,7 @@ pub struct Profile {
     pub iterations: u64,
     pub uuid: String,
     pub overview_key: Vec<u8>,
-    pub created_at: i64
+    pub created_at: i64,
 }
 
 impl Profile {
@@ -65,7 +65,6 @@ impl Profile {
             created_at: d.createdAt,
         })
     }
-
 }
 
 // Read in the profile. If the user's master password is given, we also decrypt the master and overview keys

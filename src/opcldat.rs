@@ -7,7 +7,7 @@
 
 use std::io::prelude::*;
 
-use super::{Result, Error};
+use super::{Error, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 const OPCLDAT_STR: &'static [u8] = b"OPCLDAT";

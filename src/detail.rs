@@ -42,7 +42,7 @@ pub enum LoginFieldKind {
     Email,
     #[serde(rename = "S")]
     S,
-   #[serde(rename = "R")]
+    #[serde(rename = "R")]
     Radio,
 }
 
@@ -70,7 +70,6 @@ pub struct Password {
     pub backup_keys: Vec<String>,
     pub password: String,
 }
-
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -101,7 +100,7 @@ pub enum FieldKind {
     Email,
     Phone,
     #[serde(rename = "URL")]
-    URL
+    URL,
 }
 
 #[derive(Debug, Deserialize)]

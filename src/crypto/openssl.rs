@@ -7,14 +7,14 @@
 
 //! The OpenSSL implementation of our crypto functions
 
-use super::super::{Result, HmacKey};
-use openssl::symm;
-use openssl::sign;
-use openssl::pkey::PKey;
+use super::super::{HmacKey, Result};
+use openssl::error::ErrorStack;
 use openssl::hash;
 use openssl::hash::MessageDigest;
 use openssl::pkcs5::pbkdf2_hmac;
-use openssl::error::ErrorStack;
+use openssl::pkey::PKey;
+use openssl::sign;
+use openssl::symm;
 
 pub type Error = ErrorStack;
 
@@ -24,10 +24,15 @@ impl From<ErrorStack> for super::super::Error {
     }
 }
 
-
 pub fn pbkdf2(pw: &[u8], salt: &[u8], iterations: usize) -> Result<[u8; 64]> {
     let mut derived = [0u8; 64];
-    try!(pbkdf2_hmac(pw, salt, iterations, MessageDigest::sha512(), &mut derived));
+    try!(pbkdf2_hmac(
+        pw,
+        salt,
+        iterations,
+        MessageDigest::sha512(),
+        &mut derived
+    ));
 
     Ok(derived)
 }
@@ -39,12 +44,16 @@ pub fn hash_sha512(data: &[u8]) -> Result<Vec<u8>> {
     }
 }
 
-
 pub fn decrypt_data(data: &[u8], decrypt_key: &[u8], iv: &[u8]) -> Result<Vec<u8>> {
     let t = symm::Cipher::aes_256_cbc();
-    let mut crypter = try!(symm::Crypter::new(t, symm::Mode::Decrypt, decrypt_key, Some(iv)));
+    let mut crypter = try!(symm::Crypter::new(
+        t,
+        symm::Mode::Decrypt,
+        decrypt_key,
+        Some(iv)
+    ));
     crypter.pad(false);
-    let mut decrypted = vec![0u8; data.len()+ t.block_size()];
+    let mut decrypted = vec![0u8; data.len() + t.block_size()];
     let count = try!(crypter.update(data, &mut decrypted[..]));
     let rest = try!(crypter.finalize(&mut decrypted[count..]));
 
@@ -67,7 +76,9 @@ pub struct HMAC<'b> {
 }
 
 pub fn hmac<F>(key: &HmacKey, cb: F) -> Result<Vec<u8>>
-    where F: Fn(&mut HMAC) -> Result<()> {
+where
+    F: Fn(&mut HMAC) -> Result<()>,
+{
     let pkey = try!(PKey::hmac(key));
     let mut signer = Box::new(try!(sign::Signer::new(MessageDigest::sha256(), &pkey)));
 

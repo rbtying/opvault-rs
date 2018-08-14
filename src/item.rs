@@ -5,25 +5,25 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::path::{Path, PathBuf};
+use std::collections::hash_map::Values as HashMapValues;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::ErrorKind;
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::result;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::collections::hash_map::Values as HashMapValues;
+use std::result;
+use std::str::FromStr;
 
-use serde_json;
-use base64;
-use super::crypto::{verify_data, decrypt_data, hmac};
-use super::opdata01;
-use super::{Result, Error, MasterKey, OverviewKey, ItemKey, HmacKey, Uuid, AttachmentIterator};
-use super::attachment::{AttachmentData, Attachment};
 use super::attachment;
-use super::detail::{Detail};
+use super::attachment::{Attachment, AttachmentData};
+use super::crypto::{decrypt_data, hmac, verify_data};
+use super::detail::Detail;
+use super::opdata01;
 use super::overview::Overview;
+use super::{AttachmentIterator, Error, HmacKey, ItemKey, MasterKey, OverviewKey, Result, Uuid};
+use base64;
+use serde_json;
 
 /// These are the kinds of items that 1password knows about
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -154,7 +154,12 @@ pub struct Item<'a> {
 }
 
 impl<'a> Item<'a> {
-    fn from_item_data(d: &ItemData, atts: &'a HashMap<Uuid, (AttachmentData, PathBuf)>, master: Rc<MasterKey>, overview: Rc<OverviewKey>) -> Result<Item<'a>> {
+    fn from_item_data(
+        d: &ItemData,
+        atts: &'a HashMap<Uuid, (AttachmentData, PathBuf)>,
+        master: Rc<MasterKey>,
+        overview: Rc<OverviewKey>,
+    ) -> Result<Item<'a>> {
         let uuid = try!(Uuid::parse_str(&d.uuid));
         let folder_uuid = if let Some(ref id) = d.folder {
             Some(try!(Uuid::parse_str(id)))
@@ -162,7 +167,8 @@ impl<'a> Item<'a> {
             None
         };
 
-        let attachments: Vec<Uuid> = atts.iter()
+        let attachments: Vec<Uuid> = atts
+            .iter()
             .filter(|&(_, &(ref a, _))| a.itemUUID == uuid)
             .map(|(k, _)| *k)
             .collect();
@@ -189,7 +195,11 @@ impl<'a> Item<'a> {
     /// Decrypt this item's details
     pub fn detail(&self) -> Result<Detail> {
         let keys = try!(self.item_key());
-        let raw = try!(opdata01::decrypt(&self.d[..], keys.encryption(), keys.verification()));
+        let raw = try!(opdata01::decrypt(
+            &self.d[..],
+            keys.encryption(),
+            keys.verification()
+        ));
 
         let res = if self.category == Category::Login {
             Detail::Login(serde_json::from_slice(&raw)?)
@@ -204,7 +214,11 @@ impl<'a> Item<'a> {
 
     /// Decrypt the item's overview
     pub fn overview(&self) -> Result<Overview> {
-        let raw = opdata01::decrypt(&self.o[..], self.overview.encryption(), self.overview.verification())?;
+        let raw = opdata01::decrypt(
+            &self.o[..],
+            self.overview.encryption(),
+            self.overview.verification(),
+        )?;
         let res = try!(Overview::from_slice(&raw));
 
         Ok(res)
@@ -224,7 +238,8 @@ impl<'a> Item<'a> {
     pub fn get_attachment(&self, id: &Uuid) -> Option<Attachment> {
         if let Ok(key) = self.item_key() {
             if let Some(&(ref data, ref p)) = self.atts.get(id) {
-                return attachment::from_data(data, p.clone(), Rc::new(key), self.overview.clone()).ok()
+                return attachment::from_data(data, p.clone(), Rc::new(key), self.overview.clone())
+                    .ok();
             }
         }
 
@@ -268,13 +283,19 @@ fn read_band(p: &Path, overview: Rc<OverviewKey>) -> Result<HashMap<Uuid, ItemDa
     let json_str = s.trim_left_matches("ld(").trim_right_matches(");");
 
     let mut items: HashMap<Uuid, ItemData> = try!(serde_json::from_str(json_str));
-    let valid_items = items.drain()
+    let valid_items = items
+        .drain()
         .filter(|&(_, ref i)| i.verify(overview.verification()).ok() == Some(true))
         .collect();
     Ok(valid_items)
 }
 
-pub fn item_from_data<'a>(d: &ItemData, atts: &'a HashMap<Uuid, (AttachmentData, PathBuf)>, master: Rc<MasterKey>, overview: Rc<OverviewKey>) -> Result<Item<'a>> {
+pub fn item_from_data<'a>(
+    d: &ItemData,
+    atts: &'a HashMap<Uuid, (AttachmentData, PathBuf)>,
+    master: Rc<MasterKey>,
+    overview: Rc<OverviewKey>,
+) -> Result<Item<'a>> {
     Item::from_item_data(d, atts, master, overview)
 }
 
@@ -290,7 +311,12 @@ impl<'a> Iterator for ItemIterator<'a> {
 
     fn next(&mut self) -> Option<Item<'a>> {
         self.inner.next().and_then(|item_data| {
-            item_from_data(item_data, self.attachments, self.master.clone(), self.overview.clone()).ok()
+            item_from_data(
+                item_data,
+                self.attachments,
+                self.master.clone(),
+                self.overview.clone(),
+            ).ok()
         })
     }
 }

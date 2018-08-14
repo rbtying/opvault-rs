@@ -20,14 +20,14 @@ extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
-extern crate openssl;
 extern crate base64;
 extern crate byteorder;
+extern crate openssl;
 extern crate uuid;
 
+use std::convert;
 use std::io;
 use std::result;
-use std::convert;
 use std::string::FromUtf8Error;
 
 pub use uuid::Uuid;
@@ -35,26 +35,29 @@ pub use uuid::Uuid;
 mod opdata01;
 pub use opdata01::OpdataError;
 
-mod profile;
+mod attachment;
+mod crypto;
 mod folder;
 mod item;
-mod crypto;
-mod vault;
-mod attachment;
-mod opcldat;
 mod key;
+mod opcldat;
+mod profile;
+mod vault;
 
 mod detail;
 mod overview;
 
-pub use profile::Profile;
-pub use item::{Item, Category};
-pub use folder::Folder;
-pub use vault::{LockedVault, UnlockedVault};
 pub use attachment::{Attachment, AttachmentIterator};
-pub use key::{Key, EncryptionKey, HmacKey, MasterKey, OverviewKey, ItemKey};
+pub use folder::Folder;
+pub use item::{Category, Item};
+pub use key::{EncryptionKey, HmacKey, ItemKey, Key, MasterKey, OverviewKey};
+pub use profile::Profile;
+pub use vault::{LockedVault, UnlockedVault};
 
-pub use detail::{Detail, Login, Generic, HtmlForm, LoginField, LoginFieldKind, Section, Field, FieldValue, FieldKind};
+pub use detail::{
+    Detail, Field, FieldKind, FieldValue, Generic, HtmlForm, Login, LoginField, LoginFieldKind,
+    Section,
+};
 pub use overview::{Overview, URL};
 
 #[derive(Debug)]
@@ -112,8 +115,8 @@ pub type Result<T> = result::Result<T, Error>;
 mod tests {
     #[test]
     fn read_vault() {
-        use std::path::Path;
         use super::{LockedVault, Uuid};
+        use std::path::Path;
 
         let vault = LockedVault::open(Path::new("onepassword_data")).expect("vault");
 

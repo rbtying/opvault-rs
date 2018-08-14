@@ -5,18 +5,18 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::path::{Path, PathBuf};
-use std::fs;
-use std::io::SeekFrom;
-use std::io::prelude::*;
 use std::collections::HashMap;
-use std::slice::Iter as SliceIter;
+use std::fs;
+use std::io::prelude::*;
+use std::io::SeekFrom;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::slice::Iter as SliceIter;
 
+use super::{opcldat, opdata01};
+use super::{ItemKey, OverviewKey, Result, Uuid};
 use base64;
 use serde_json;
-use super::{Result, Uuid, OverviewKey, ItemKey};
-use super::{opcldat, opdata01};
 
 #[derive(Debug, Deserialize)]
 #[allow(non_snake_case)]
@@ -47,7 +47,12 @@ pub struct Attachment {
 }
 
 impl Attachment {
-    fn from_attachment_data(d: &AttachmentData, p: PathBuf, key: Rc<ItemKey>, overview_key: Rc<OverviewKey>) -> Result<Attachment> {
+    fn from_attachment_data(
+        d: &AttachmentData,
+        p: PathBuf,
+        key: Rc<ItemKey>,
+        overview_key: Rc<OverviewKey>,
+    ) -> Result<Attachment> {
         let overview = try!(base64::decode(&d.overview));
 
         Ok(Attachment {
@@ -67,7 +72,11 @@ impl Attachment {
 
     /// Decrypt the attachment's overview data
     pub fn decrypt_overview(&self) -> Result<Vec<u8>> {
-        opdata01::decrypt(&self.overview[..], self.overview_key.encryption(), self.overview_key.verification())
+        opdata01::decrypt(
+            &self.overview[..],
+            self.overview_key.encryption(),
+            self.overview_key.verification(),
+        )
     }
 
     /// Decrypt the attachment's icon
@@ -82,7 +91,11 @@ impl Attachment {
         let mut icon_data = vec![0u8; metadata.icon_size as usize];
         try!(f.seek(SeekFrom::Start(icon_offset as u64)));
         try!(f.read_exact(&mut icon_data));
-        opdata01::decrypt(&icon_data[..], self.key.encryption(), self.key.verification())
+        opdata01::decrypt(
+            &icon_data[..],
+            self.key.encryption(),
+            self.key.verification(),
+        )
     }
 
     /// Decrypt the attachment's content
@@ -92,12 +105,17 @@ impl Attachment {
         let mut f = try!(fs::File::open(&self.path));
         let metadata = try!(opcldat::read_header(&mut f));
 
-        let content_offset = 16 /* header */ + (metadata.metadata_size as usize) + (metadata.icon_size) as usize;
+        let content_offset =
+            16 /* header */ + (metadata.metadata_size as usize) + (metadata.icon_size) as usize;
 
         let mut content_data = Vec::new();
         try!(f.seek(SeekFrom::Start(content_offset as u64)));
         try!(f.read_to_end(&mut content_data));
-        opdata01::decrypt(&content_data[..], self.key.encryption(), self.key.verification())
+        opdata01::decrypt(
+            &content_data[..],
+            self.key.encryption(),
+            self.key.verification(),
+        )
     }
 }
 
@@ -145,12 +163,25 @@ impl<'a> Iterator for AttachmentIterator<'a> {
     type Item = Attachment;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        self.inner
+            .next()
             .and_then(|id| self.atts.get(id))
-            .and_then(|&(ref d, ref p)| Attachment::from_attachment_data(d, p.clone(), self.key.clone(), self.overview.clone()).ok())
+            .and_then(|&(ref d, ref p)| {
+                Attachment::from_attachment_data(
+                    d,
+                    p.clone(),
+                    self.key.clone(),
+                    self.overview.clone(),
+                ).ok()
+            })
     }
 }
 
-pub fn from_data(attachment: &AttachmentData, p: PathBuf, key: Rc<ItemKey>, overview_key: Rc<OverviewKey>) -> Result<Attachment> {
+pub fn from_data(
+    attachment: &AttachmentData,
+    p: PathBuf,
+    key: Rc<ItemKey>,
+    overview_key: Rc<OverviewKey>,
+) -> Result<Attachment> {
     Attachment::from_attachment_data(attachment, p.clone(), key, overview_key)
 }

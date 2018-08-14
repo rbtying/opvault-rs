@@ -6,19 +6,19 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
-use std::path::Path;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
+use std::path::Path;
 use std::rc::Rc;
 
+use super::opdata01;
+use super::{OverviewKey, Result, Uuid};
+use base64;
 use serde::de;
 use serde::Deserialize;
 use serde_json;
-use base64;
-use super::opdata01;
-use super::{Result, OverviewKey, Uuid};
 
 #[derive(Debug, Deserialize)]
 pub struct FolderData {
@@ -41,7 +41,7 @@ pub struct Folder {
     pub uuid: Uuid,
     pub smart: bool,
     overview: Vec<u8>,
-    overview_key: Rc<OverviewKey>
+    overview_key: Rc<OverviewKey>,
 }
 
 impl Folder {
@@ -100,8 +100,9 @@ pub struct Overview {
     // pub predicate: Vec<u8>,
 }
 
-fn base64_deser<'de, D> (d: D) -> std::result::Result<Vec<u8>, D::Error>
-    where D: de::Deserializer<'de>
+fn base64_deser<'de, D>(d: D) -> std::result::Result<Vec<u8>, D::Error>
+where
+    D: de::Deserializer<'de>,
 {
     let s = String::deserialize(d)?;
     match base64::decode(&s) {

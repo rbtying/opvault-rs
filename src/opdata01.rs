@@ -5,14 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io::Cursor;
-use std::io::prelude::*;
 use std::convert::From;
+use std::io::prelude::*;
+use std::io::Cursor;
 
 use super::Result;
 use byteorder::{LittleEndian, ReadBytesExt};
 
-use crypto::{verify_data, decrypt_data};
+use crypto::{decrypt_data, verify_data};
 
 /// The header for this kind of data
 static OPDATA_STR: &'static [u8; 8] = b"opdata01";
@@ -42,10 +42,10 @@ pub fn decrypt(data: &[u8], decrypt_key: &[u8], mac_key: &[u8]) -> Result<Vec<u8
     let len = try!(cursor.read_u64::<LittleEndian>());
     let iv = &data[16..32];
 
-    let crypt_data = &data[32..data.len()-32];
+    let crypt_data = &data[32..data.len() - 32];
 
     let decrypted = try!(decrypt_data(crypt_data, decrypt_key, iv));
-    let unpadded: Vec<u8> = decrypted[crypt_data.len()-(len as usize)..].into();
+    let unpadded: Vec<u8> = decrypted[crypt_data.len() - (len as usize)..].into();
 
     Ok(unpadded)
 }
