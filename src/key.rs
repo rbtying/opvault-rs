@@ -33,7 +33,7 @@ impl Key {
 
 impl From<Vec<u8>> for Key {
     fn from(v: Vec<u8>) -> Self {
-        Key { v: v }
+        Key { v }
     }
 }
 
@@ -53,7 +53,7 @@ impl Deref for MasterKey {
 
 impl From<Vec<u8>> for MasterKey {
     fn from(v: Vec<u8>) -> Self {
-        Self { key: Key { v: v } }
+        Self { key: Key { v } }
     }
 }
 
@@ -73,7 +73,7 @@ impl Deref for OverviewKey {
 
 impl From<Vec<u8>> for OverviewKey {
     fn from(v: Vec<u8>) -> Self {
-        Self { key: Key { v: v } }
+        Self { key: Key { v } }
     }
 }
 
@@ -93,6 +93,6 @@ impl Deref for ItemKey {
 
 impl From<Vec<u8>> for ItemKey {
     fn from(v: Vec<u8>) -> Self {
-        Self { key: Key { v: v } }
+        Self { key: Key { v } }
     }
 }

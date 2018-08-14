@@ -56,13 +56,13 @@ impl Profile {
             last_updated_by: d.lastUpdatedBy,
             updated_at: d.updatedAt,
             profile_name: d.profileName,
-            salt: salt,
             password_hint: d.passwordHint,
-            master_key: master_key,
             iterations: d.iterations,
             uuid: d.uuid,
-            overview_key: overview_key,
             created_at: d.createdAt,
+            salt,
+            master_key,
+            overview_key,
         })
     }
 }

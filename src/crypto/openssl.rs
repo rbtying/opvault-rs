@@ -83,7 +83,7 @@ where
     let mut signer = Box::new(try!(sign::Signer::new(MessageDigest::sha256(), &pkey)));
 
     // Move the value into and out of HMAC so the borrow checker is happy with us.
-    let mut hmac = HMAC { signer: signer };
+    let mut hmac = HMAC { signer };
     try!(cb(&mut hmac));
     signer = hmac.signer;
 
@@ -96,7 +96,7 @@ where
 impl<'b> HMAC<'b> {
     pub fn update(&mut self, data: &[u8]) -> Result<()> {
         match self.signer.update(data) {
-            Ok(x) => Ok(x),
+            Ok(()) => Ok(()),
             Err(e) => Err(From::from(e)),
         }
     }

@@ -49,7 +49,7 @@ pub struct Attachment {
 impl Attachment {
     fn from_attachment_data(
         d: &AttachmentData,
-        p: PathBuf,
+        path: PathBuf,
         key: Rc<ItemKey>,
         overview_key: Rc<OverviewKey>,
     ) -> Result<Attachment> {
@@ -61,12 +61,12 @@ impl Attachment {
             external: d.external,
             updated_at: d.updatedAt,
             tx_timestamp: d.txTimestamp,
-            overview: overview,
             created_at: d.createdAt,
             uuid: d.uuid,
-            path: p,
-            key: key,
-            overview_key: overview_key,
+            overview,
+            path,
+            key,
+            overview_key,
         })
     }
 
@@ -89,7 +89,7 @@ impl Attachment {
         let icon_offset = 16 /* header */ + metadata.metadata_size;
 
         let mut icon_data = vec![0u8; metadata.icon_size as usize];
-        try!(f.seek(SeekFrom::Start(icon_offset as u64)));
+        try!(f.seek(SeekFrom::Start(u64::from(icon_offset))));
         try!(f.read_exact(&mut icon_data));
         opdata01::decrypt(
             &icon_data[..],
@@ -179,7 +179,7 @@ impl<'a> Iterator for AttachmentIterator<'a> {
 
 pub fn from_data(
     attachment: &AttachmentData,
-    p: PathBuf,
+    p: &PathBuf,
     key: Rc<ItemKey>,
     overview_key: Rc<OverviewKey>,
 ) -> Result<Attachment> {

@@ -93,12 +93,12 @@ pub struct ItemData {
 
 macro_rules! update {
     ($s: expr, $name:expr, $field:expr) => {
-        try!($s.update($name.as_bytes()));
+        try!($s.update($name));
         try!($s.update($field.to_string().as_bytes()));
     };
     (option, $s: expr, $name:expr, $field:expr) => {
         if let Some(ref x) = $field {
-            try!($s.update($name.as_bytes()));
+            try!($s.update($name));
             try!($s.update(x.to_string().as_bytes()));
         }
     };
@@ -110,19 +110,19 @@ impl ItemData {
         let actual_hmac = try!(hmac(key, |signer| {
             // This is far from optimal, but we need idents and strings here so any
             // option is bound to lead to some duplication.
-            update!(signer, "category", self.category);
-            update!(signer, "created", self.created);
-            update!(signer, "d", self.d);
-            update!(option, signer, "fave", self.fave);
-            update!(option, signer, "folder", self.folder);
-            update!(signer, "k", self.k);
-            update!(signer, "o", self.o);
+            update!(signer, b"category", self.category);
+            update!(signer, b"created", self.created);
+            update!(signer, b"d", self.d);
+            update!(option, signer, b"fave", self.fave);
+            update!(option, signer, b"folder", self.folder);
+            update!(signer, b"k", self.k);
+            update!(signer, b"o", self.o);
             // Although this is boolean in the JSON, the HMAC is calculated with
             // this as an integer.
-            update!(option, signer, "trashed", self.trashed.map(|x| x as i32));
-            update!(signer, "tx", self.tx);
-            update!(signer, "updated", self.updated);
-            update!(signer, "uuid", self.uuid);
+            update!(option, signer, b"trashed", self.trashed.map(|x| x as i32));
+            update!(signer, b"tx", self.tx);
+            update!(signer, b"updated", self.updated);
+            update!(signer, b"uuid", self.uuid);
             Ok(())
         }));
 
@@ -183,12 +183,12 @@ impl<'a> Item<'a> {
             o: try!(base64::decode(&d.o)),
             tx: d.tx,
             updated: d.updated,
-            uuid: uuid,
             fave: d.fave,
-            attachments: attachments,
-            atts: atts,
-            master: master,
-            overview: overview,
+            uuid,
+            attachments,
+            atts,
+            master,
+            overview,
         })
     }
 
@@ -238,8 +238,7 @@ impl<'a> Item<'a> {
     pub fn get_attachment(&self, id: &Uuid) -> Option<Attachment> {
         if let Ok(key) = self.item_key() {
             if let Some(&(ref data, ref p)) = self.atts.get(id) {
-                return attachment::from_data(data, p.clone(), Rc::new(key), self.overview.clone())
-                    .ok();
+                return attachment::from_data(data, p, Rc::new(key), self.overview.clone()).ok();
             }
         }
 
@@ -260,19 +259,19 @@ impl<'a> Item<'a> {
 static BANDS: &'static [u8; 16] = b"0123456789ABCDEF";
 
 // Load the items given the containing path
-pub fn read_items(p: &Path, overview: Rc<OverviewKey>) -> Result<HashMap<Uuid, ItemData>> {
+pub fn read_items(p: &Path, overview: &Rc<OverviewKey>) -> Result<HashMap<Uuid, ItemData>> {
     let mut map = HashMap::new();
     for x in BANDS.iter() {
         let name = format!("band_{}.js", *x as char);
         let path = p.join(name);
-        let items = try!(read_band(&path, overview.clone()));
+        let items = try!(read_band(&path, &overview));
         map.extend(items);
     }
 
     Ok(map)
 }
 
-fn read_band(p: &Path, overview: Rc<OverviewKey>) -> Result<HashMap<Uuid, ItemData>> {
+fn read_band(p: &Path, overview: &Rc<OverviewKey>) -> Result<HashMap<Uuid, ItemData>> {
     let mut f = match File::open(p) {
         Err(ref e) if e.kind() == ErrorKind::NotFound => return Ok(HashMap::new()),
         Err(e) => return Err(From::from(e)),

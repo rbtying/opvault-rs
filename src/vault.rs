@@ -31,10 +31,7 @@ impl LockedVault {
         let base = path.join("default");
         let profile = try!(profile::read_profile(&base.join("profile.js")));
 
-        Ok(LockedVault {
-            base: base,
-            profile: profile,
-        })
+        Ok(LockedVault { base, profile })
     }
 
     /// Unlock this vault with the user's master password
@@ -108,21 +105,18 @@ impl UnlockedVault {
         master: Rc<MasterKey>,
         overview: Rc<OverviewKey>,
     ) -> Result<UnlockedVault> {
-        let folders = try!(folder::read_folders(
-            &base.join("folders.js"),
-            overview.clone()
-        ));
+        let folders = try!(folder::read_folders(&base.join("folders.js"), &overview,));
         let attachments = try!(attachment::read_attachments(&base));
-        let items = try!(item::read_items(&base, overview.clone()));
+        let items = try!(item::read_items(&base, &overview));
 
         Ok(UnlockedVault {
-            base: base,
-            profile: profile,
-            folders: folders,
-            items: items,
-            attachments: attachments,
-            master: master,
-            overview: overview,
+            base,
+            profile,
+            folders,
+            items,
+            attachments,
+            master,
+            overview,
         })
     }
 

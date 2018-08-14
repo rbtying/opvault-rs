@@ -53,7 +53,7 @@ impl Folder {
             updated: d.updated,
             uuid: d.uuid,
             smart: d.smart,
-            overview_key: overview_key,
+            overview_key,
         })
     }
 
@@ -69,7 +69,7 @@ impl Folder {
 }
 
 /// Read the encrypted folder data
-pub fn read_folders(p: &Path, overview_key: Rc<OverviewKey>) -> Result<HashMap<Uuid, Folder>> {
+pub fn read_folders(p: &Path, overview_key: &Rc<OverviewKey>) -> Result<HashMap<Uuid, Folder>> {
     let mut f = match File::open(p) {
         Ok(x) => x,
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
