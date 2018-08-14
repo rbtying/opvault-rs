@@ -8,22 +8,21 @@
 use std::collections::hash_map::Values as HashMapValues;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::prelude::*;
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::result;
 use std::str::FromStr;
 
-use super::attachment;
-use super::attachment::{Attachment, AttachmentData};
-use super::crypto::{decrypt_data, hmac, verify_data};
-use super::detail::Detail;
-use super::opdata01;
-use super::overview::Overview;
-use super::{AttachmentIterator, Error, HmacKey, ItemKey, MasterKey, OverviewKey, Result, Uuid};
 use base64;
 use serde_json;
+
+use attachment::{self, Attachment, AttachmentData};
+use crypto::{decrypt_data, hmac, verify_data};
+use detail::Detail;
+use opdata01;
+use overview::Overview;
+use {AttachmentIterator, Error, HmacKey, ItemKey, MasterKey, OverviewKey, Result, Uuid};
 
 /// These are the kinds of items that 1password knows about
 #[derive(Debug, Copy, Clone, PartialEq)]

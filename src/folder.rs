@@ -5,20 +5,18 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io;
-use std::io::prelude::*;
+use std::io::{self, Read};
 use std::path::Path;
 use std::rc::Rc;
+use std::result;
 
-use super::opdata01;
-use super::{OverviewKey, Result, Uuid};
 use base64;
-use serde::de;
-use serde::Deserialize;
+use serde::{de, Deserialize};
 use serde_json;
+
+use super::{opdata01, OverviewKey, Result, Uuid};
 
 #[derive(Debug, Deserialize)]
 pub struct FolderData {
@@ -61,10 +59,7 @@ impl Folder {
     pub fn overview(&self) -> Result<Overview> {
         let key = self.overview_key.clone();
         let raw = opdata01::decrypt(&self.overview[..], key.encryption(), key.verification())?;
-        match Overview::from_slice(&raw) {
-            Ok(x) => Ok(x),
-            Err(e) => Err(From::from(e)),
-        }
+        Ok(Overview::from_slice(&raw)?)
     }
 }
 
@@ -73,7 +68,7 @@ pub fn read_folders(p: &Path, overview_key: &Rc<OverviewKey>) -> Result<HashMap<
     let mut f = match File::open(p) {
         Ok(x) => x,
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
-        Err(e) => return Err(From::from(e)),
+        Err(e) => return Err(e.into()),
     };
 
     let mut s = String::new();
@@ -100,7 +95,7 @@ pub struct Overview {
     // pub predicate: Vec<u8>,
 }
 
-fn base64_deser<'de, D>(d: D) -> std::result::Result<Vec<u8>, D::Error>
+fn base64_deser<'de, D>(d: D) -> result::Result<Vec<u8>, D::Error>
 where
     D: de::Deserializer<'de>,
 {

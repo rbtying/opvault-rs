@@ -5,14 +5,16 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use super::attachment::AttachmentData;
-use super::item::{ItemData, ItemIterator};
-use super::Result;
-use super::{attachment, crypto, folder, item, opdata01, profile};
-use super::{Folder, Item, MasterKey, OverviewKey, Profile, Uuid};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+use attachment::AttachmentData;
+use item::{ItemData, ItemIterator};
+use {
+    attachment, crypto, folder, item, opdata01, profile, Folder, Item, MasterKey, OverviewKey,
+    Profile, Result, Uuid,
+};
 
 /// A locked vault has just been created and has not loaded any items or
 /// attachments. It contains just enough information to try to unseal it.

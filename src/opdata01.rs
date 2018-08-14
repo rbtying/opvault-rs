@@ -5,14 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::convert::From;
-use std::io::prelude::*;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 
-use super::Result;
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use crypto::{decrypt_data, verify_data};
+use Result;
 
 /// The header for this kind of data
 static OPDATA_STR: &'static [u8; 8] = b"opdata01";
@@ -36,7 +34,7 @@ pub fn decrypt(data: &[u8], decrypt_key: &[u8], mac_key: &[u8]) -> Result<Vec<u8
     try!(cursor.read_exact(&mut header));
 
     if &header != OPDATA_STR {
-        return Err(From::from(OpdataError::InvalidHeader));
+        return Err(OpdataError::InvalidHeader.into());
     }
 
     let len = try!(cursor.read_u64::<LittleEndian>());

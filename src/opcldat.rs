@@ -5,10 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io::prelude::*;
+use std::io::Read;
 
-use super::{Error, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
+
+use {Error, Result};
 
 const OPCLDAT_STR: &[u8] = b"OPCLDAT";
 

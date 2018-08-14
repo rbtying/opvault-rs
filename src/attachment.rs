@@ -7,16 +7,15 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::io::prelude::*;
-use std::io::SeekFrom;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::slice::Iter as SliceIter;
 
-use super::{opcldat, opdata01};
-use super::{ItemKey, OverviewKey, Result, Uuid};
 use base64;
 use serde_json;
+
+use {opcldat, opdata01, ItemKey, OverviewKey, Result, Uuid};
 
 #[derive(Debug, Deserialize)]
 #[allow(non_snake_case)]

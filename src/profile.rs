@@ -6,12 +6,13 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::Read;
 use std::path::Path;
 
-use super::Result;
 use base64;
 use serde_json;
+
+use Result;
 
 /// The profile data from the file, the names match the keys in the file.
 #[derive(Debug, Deserialize)]

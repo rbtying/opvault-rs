@@ -113,11 +113,12 @@ pub type Result<T> = result::Result<T, Error>;
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
+    use {LockedVault, Uuid};
+
     #[test]
     fn read_vault() {
-        use super::{LockedVault, Uuid};
-        use std::path::Path;
-
         let vault = LockedVault::open(Path::new("onepassword_data")).expect("vault");
 
         let unlocked = vault.unlock(b"freddy").expect("unlock");
