@@ -197,7 +197,8 @@ impl<'a> Item<'a> {
         })
     }
 
-    /// Decrypt this item's details
+    /// Decrypt this item's details. Details are not generally [SecStr]'d,
+    /// since this should only be used for display (and the UI won't use a secure string).
     pub fn detail(&self) -> Result<Detail> {
         let keys = self.item_key()?;
         let raw = opdata01::decrypt(&self.d, &keys)?;
