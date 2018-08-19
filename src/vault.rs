@@ -31,14 +31,14 @@ impl LockedVault {
     /// provide a password hint to the user.
     pub fn open(path: &Path) -> Result<LockedVault> {
         let base = path.join("default");
-        let profile = try!(profile::read_profile(&base.join("profile.js")));
+        let profile = profile::read_profile(&base.join("profile.js"))?;
 
         Ok(LockedVault { base, profile })
     }
 
     /// Unlock this vault with the user's master password
     pub fn unlock(self, password: &[u8]) -> Result<UnlockedVault> {
-        let (master, overview) = try!(self.decrypt_keys(password));
+        let (master, overview) = self.decrypt_keys(password)?;
         UnlockedVault::new(self.base, self.profile, Rc::new(master), Rc::new(overview))
     }
 
@@ -46,24 +46,24 @@ impl LockedVault {
     /// password. The master keys can be used to retrieve item details and the
     /// overview keys decrypt item and folder overview data.
     fn decrypt_keys(&self, password: &[u8]) -> Result<(MasterKey, OverviewKey)> {
-        let key = try!(crypto::pbkdf2(
+        let key = crypto::pbkdf2(
             password,
             &self.profile.salt[..],
-            self.profile.iterations as usize
-        ));
+            self.profile.iterations as u32,
+        )?;
         let decrypt_key = &key[..32];
         let hmac_key = &key[32..];
 
-        let master_key = try!(derive_key(
+        let master_key = derive_key(
             &self.profile.master_key[..],
             decrypt_key,
             hmac_key
-        ));
-        let overview_key = try!(derive_key(
+        )?;
+        let overview_key = derive_key(
             &self.profile.overview_key[..],
             decrypt_key,
             hmac_key
-        ));
+        )?;
 
         Ok((master_key.into(), overview_key.into()))
     }
@@ -71,10 +71,10 @@ impl LockedVault {
 
 /// Derive a key from its opdata01-encoded source
 fn derive_key(data: &[u8], decrypt_key: &[u8], hmac_key: &[u8]) -> Result<Vec<u8>> {
-    let key_plain = try!(opdata01::decrypt(data, decrypt_key, hmac_key));
-    let hashed = try!(crypto::hash_sha512(key_plain.as_slice()));
+    let key_plain = opdata01::decrypt(data, decrypt_key, hmac_key)?;
+    let hashed = crypto::hash_sha512(key_plain.as_slice())?;
 
-    Ok(hashed)
+    Ok(hashed.to_vec())
 }
 
 /// An unlocked vault has loaded the encrypted items and attachments and
@@ -107,9 +107,9 @@ impl UnlockedVault {
         master: Rc<MasterKey>,
         overview: Rc<OverviewKey>,
     ) -> Result<UnlockedVault> {
-        let folders = try!(folder::read_folders(&base.join("folders.js"), &overview,));
-        let attachments = try!(attachment::read_attachments(&base));
-        let items = try!(item::read_items(&base, &overview));
+        let folders = folder::read_folders(&base.join("folders.js"), &overview)?;
+        let attachments = attachment::read_attachments(&base)?;
+        let items = item::read_items(&base, &overview)?;
 
         Ok(UnlockedVault {
             base,

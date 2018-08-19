@@ -22,7 +22,7 @@ extern crate serde_json;
 extern crate serde_derive;
 extern crate base64;
 extern crate byteorder;
-extern crate openssl;
+extern crate crypto as rust_crypto;
 extern crate uuid;
 
 use std::convert;

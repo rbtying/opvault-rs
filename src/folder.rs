@@ -72,15 +72,15 @@ pub fn read_folders(p: &Path, overview_key: &Rc<OverviewKey>) -> Result<HashMap<
     };
 
     let mut s = String::new();
-    try!(f.read_to_string(&mut s));
+    f.read_to_string(&mut s)?;
     // the file looks like it's meant to be eval'ed by a JS engine, which sounds
     // like a particularly bad idea, let's remove the non-json bits.
     let json_str = s.trim_left_matches("loadFolders(").trim_right_matches(");");
-    let mut folder_datas: HashMap<Uuid, FolderData> = try!(serde_json::from_str(json_str));
+    let mut folder_datas: HashMap<Uuid, FolderData> = serde_json::from_str(json_str)?;
     let mut folders = HashMap::new();
 
     for (k, v) in folder_datas.drain() {
-        folders.insert(k, try!(Folder::from_folder_data(v, overview_key.clone())));
+        folders.insert(k, Folder::from_folder_data(v, overview_key.clone())?);
     }
 
     Ok(folders)
