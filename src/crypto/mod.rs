@@ -16,8 +16,9 @@ use rust_crypto::mac::{Mac, MacResult};
 use rust_crypto::pbkdf2::pbkdf2 as crypto_pbkdf2;
 use rust_crypto::sha2::{Sha256, Sha512};
 use rust_crypto::symmetriccipher::SymmetricCipherError;
+use secstr::SecStr;
 
-use {Error as LibError, HmacKey, Result};
+use {EncryptionKey, Error as LibError, HmacKey, Result};
 
 #[derive(Debug)]
 pub enum Error {
@@ -30,13 +31,20 @@ impl From<SymmetricCipherError> for ::Error {
     }
 }
 
-pub fn pbkdf2(pw: &[u8], salt: &[u8], iterations: u32) -> Result<[u8; 64]> {
-    let mut derived = [0u8; 64];
-    let mut mac = Hmac::new(Sha512::new(), pw);
-    crypto_pbkdf2(&mut mac, salt, iterations, &mut derived);
+/// Applies the opvault PBKDF2 derivation and returns the derived key.
+pub fn pbkdf2(pw: &SecStr, salt: &SecStr, iterations: u32) -> Result<SecStr> {
+    let mut derived = SecStr::new(vec![0u8; 64]);
+    let mut mac = Hmac::new(Sha512::new(), pw.unsecure());
+    crypto_pbkdf2(
+        &mut mac,
+        salt.unsecure(),
+        iterations,
+        derived.unsecure_mut(),
+    );
     Ok(derived)
 }
 
+/// Computes the SHA512 hash of the provided data.
 pub fn hash_sha512(data: &[u8]) -> Result<[u8; 64]> {
     let mut hash = [0u8; 64];
     let mut digest = Sha512::new();
@@ -45,16 +53,30 @@ pub fn hash_sha512(data: &[u8]) -> Result<[u8; 64]> {
     Ok(hash)
 }
 
-pub fn decrypt_data(data: &[u8], decrypt_key: &[u8], iv: &[u8]) -> Result<Vec<u8>> {
-    let mut decryptor = aes::cbc_decryptor(aes::KeySize::KeySize256, decrypt_key, iv, NoPadding);
+/// Decrypts the provided data using AES CBC with no padding and SHA512.
+pub fn decrypt_data(data: &[u8], decrypt_key: &EncryptionKey, iv: &SecStr) -> Result<SecStr> {
+    let mut decryptor = aes::cbc_decryptor(
+        aes::KeySize::KeySize256,
+        decrypt_key.unsecure(),
+        iv.unsecure(),
+        NoPadding,
+    );
     let mut read_buffer = RefReadBuffer::new(data);
 
-    let mut output = Vec::new();
-    let mut decrypt_buffer = [0; 4096];
-    let mut decrypt_buffer_writer = RefWriteBuffer::new(&mut decrypt_buffer);
+    // CBC block size is 16 bytes, so the output needs to be larger than Ceil[data / 16] * 16
+    let mut output = Vec::with_capacity(((data.len() - 1) / 16 + 1) * 16);
+    let mut decrypt_buffer = SecStr::new(vec![0; 4096]);
+    let mut decrypt_buffer_writer = RefWriteBuffer::new(decrypt_buffer.unsecure_mut());
 
     loop {
-        let result = decryptor.decrypt(&mut read_buffer, &mut decrypt_buffer_writer, true)?;
+        let result = match decryptor.decrypt(&mut read_buffer, &mut decrypt_buffer_writer, true) {
+            Ok(r) => r,
+            Err(e) => {
+                // Ensure that we zero out the output on error.
+                drop(SecStr::new(output));
+                return Err(e.into());
+            }
+        };
         output.extend_from_slice(decrypt_buffer_writer.take_read_buffer().take_remaining());
         match result {
             BufferResult::BufferUnderflow => break,
@@ -62,7 +84,7 @@ pub fn decrypt_data(data: &[u8], decrypt_key: &[u8], iv: &[u8]) -> Result<Vec<u8
         }
     }
 
-    Ok(output)
+    Ok(SecStr::new(output))
 }
 
 /// Verify that the provided [data], of the format
@@ -73,7 +95,7 @@ pub fn decrypt_data(data: &[u8], decrypt_key: &[u8], iv: &[u8]) -> Result<Vec<u8
 pub fn verify_data(data_with_hash_suffix: &[u8], hmac_key: &HmacKey) -> Result<bool> {
     assert!(data_with_hash_suffix.len() >= 32);
     let (data, mac) = data_with_hash_suffix.split_at(data_with_hash_suffix.len() - 32);
-    let mut hmac = Hmac::new(Sha256::new(), hmac_key);
+    let mut hmac = Hmac::new(Sha256::new(), hmac_key.unsecure());
     hmac.input(data);
     let result = hmac.result();
 
@@ -82,14 +104,11 @@ pub fn verify_data(data_with_hash_suffix: &[u8], hmac_key: &HmacKey) -> Result<b
 }
 
 /// Computes the 32-byte SHA256 HMAC for the data enclosed by the closure [cb].
-pub fn hmac(
-    hmac_key: &HmacKey,
-    cb: impl FnOnce(&mut HmacWrapper) -> Result<()>,
-) -> Result<[u8; 32]> {
-    let mut hmac = Hmac::new(Sha256::new(), hmac_key);
+pub fn hmac(hmac_key: &HmacKey, cb: impl FnOnce(&mut HmacWrapper) -> Result<()>) -> Result<SecStr> {
+    let mut hmac = Hmac::new(Sha256::new(), hmac_key.unsecure());
     cb(&mut HmacWrapper { mac: &mut hmac })?;
-    let mut out = [0u8; 32];
-    hmac.raw_result(&mut out);
+    let mut out = SecStr::new(vec![0u8; 32]);
+    hmac.raw_result(out.unsecure_mut());
     Ok(out)
 }
 

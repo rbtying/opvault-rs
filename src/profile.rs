@@ -12,6 +12,8 @@ use std::path::Path;
 use base64;
 use serde_json;
 
+use secstr::SecStr;
+
 use Result;
 
 /// The profile data from the file, the names match the keys in the file.
@@ -21,12 +23,12 @@ struct ProfileData {
     pub lastUpdatedBy: String,
     pub updatedAt: i64,
     pub profileName: String,
-    pub salt: String,
+    pub salt: SecStr,
     pub passwordHint: Option<String>,
-    pub masterKey: String,
+    pub masterKey: SecStr,
     pub iterations: u64,
     pub uuid: String,
-    pub overviewKey: String,
+    pub overviewKey: SecStr,
     pub createdAt: i64,
 }
 
@@ -38,20 +40,20 @@ pub struct Profile {
     pub last_updated_by: String,
     pub updated_at: i64,
     pub profile_name: String,
-    pub salt: Vec<u8>,
+    pub salt: SecStr,
     pub password_hint: Option<String>,
-    pub master_key: Vec<u8>,
+    pub master_key: SecStr,
     pub iterations: u64,
     pub uuid: String,
-    pub overview_key: Vec<u8>,
+    pub overview_key: SecStr,
     pub created_at: i64,
 }
 
 impl Profile {
     fn from_profile_data(d: ProfileData) -> Result<Profile> {
-        let salt = base64::decode(&d.salt)?;
-        let master_key = base64::decode(&d.masterKey)?;
-        let overview_key = base64::decode(&d.overviewKey)?;
+        let salt = SecStr::new(base64::decode(d.salt.unsecure())?);
+        let master_key = SecStr::new(base64::decode(&d.masterKey.unsecure())?);
+        let overview_key = SecStr::new(base64::decode(&d.overviewKey.unsecure())?);
 
         Ok(Profile {
             last_updated_by: d.lastUpdatedBy,

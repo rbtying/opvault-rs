@@ -12,9 +12,11 @@ use std::rc::Rc;
 use attachment::AttachmentData;
 use item::{ItemData, ItemIterator};
 use {
-    attachment, crypto, folder, item, opdata01, profile, Folder, Item, MasterKey, OverviewKey,
+    attachment, crypto, folder, item, opdata01, profile, Folder, Item, Key, MasterKey, OverviewKey,
     Profile, Result, Uuid,
 };
+
+use secstr::SecStr;
 
 /// A locked vault has just been created and has not loaded any items or
 /// attachments. It contains just enough information to try to unseal it.
@@ -37,7 +39,7 @@ impl LockedVault {
     }
 
     /// Unlock this vault with the user's master password
-    pub fn unlock(self, password: &[u8]) -> Result<UnlockedVault> {
+    pub fn unlock(self, password: &SecStr) -> Result<UnlockedVault> {
         let (master, overview) = self.decrypt_keys(password)?;
         UnlockedVault::new(self.base, self.profile, Rc::new(master), Rc::new(overview))
     }
@@ -45,36 +47,31 @@ impl LockedVault {
     /// Decrypt and derive the master and overview keys given the user's master
     /// password. The master keys can be used to retrieve item details and the
     /// overview keys decrypt item and folder overview data.
-    fn decrypt_keys(&self, password: &[u8]) -> Result<(MasterKey, OverviewKey)> {
-        let key = crypto::pbkdf2(
-            password,
-            &self.profile.salt[..],
-            self.profile.iterations as u32,
-        )?;
-        let decrypt_key = &key[..32];
-        let hmac_key = &key[32..];
+    fn decrypt_keys(&self, password: &SecStr) -> Result<(MasterKey, OverviewKey)> {
+        let key = crypto::pbkdf2(password, &self.profile.salt, self.profile.iterations as u32)?;
 
-        let master_key = derive_key(
-            &self.profile.master_key[..],
-            decrypt_key,
-            hmac_key
-        )?;
-        let overview_key = derive_key(
-            &self.profile.overview_key[..],
-            decrypt_key,
-            hmac_key
-        )?;
+        let key = Key::new(&key);
 
-        Ok((master_key.into(), overview_key.into()))
+        let master_key = derive_key(&self.profile.master_key, &key)?;
+        let overview_key = derive_key(&self.profile.overview_key, &key)?;
+
+        Ok((
+            MasterKey {
+                key: Key::new(&master_key),
+            },
+            OverviewKey {
+                key: Key::new(&overview_key),
+            },
+        ))
     }
 }
 
 /// Derive a key from its opdata01-encoded source
-fn derive_key(data: &[u8], decrypt_key: &[u8], hmac_key: &[u8]) -> Result<Vec<u8>> {
-    let key_plain = opdata01::decrypt(data, decrypt_key, hmac_key)?;
-    let hashed = crypto::hash_sha512(key_plain.as_slice())?;
+fn derive_key(data: &SecStr, keys: &Key) -> Result<SecStr> {
+    let key_plain = opdata01::decrypt(data, keys)?;
+    let hashed = SecStr::new(crypto::hash_sha512(key_plain.unsecure())?.to_vec());
 
-    Ok(hashed.to_vec())
+    Ok(hashed)
 }
 
 /// An unlocked vault has loaded the encrypted items and attachments and

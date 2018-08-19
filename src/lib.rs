@@ -23,6 +23,7 @@ extern crate serde_derive;
 extern crate base64;
 extern crate byteorder;
 extern crate crypto as rust_crypto;
+extern crate secstr;
 extern crate uuid;
 
 use std::convert;
@@ -115,18 +116,27 @@ pub type Result<T> = result::Result<T, Error>;
 mod tests {
     use std::path::Path;
 
+    use secstr::SecStr;
+
     use {LockedVault, Uuid};
 
     #[test]
     fn read_vault() {
         let vault = LockedVault::open(Path::new("onepassword_data")).expect("vault");
 
-        let unlocked = vault.unlock(b"freddy").expect("unlock");
+        let unlocked = vault
+            .unlock(&SecStr::new(b"freddy".to_vec()))
+            .expect("unlock");
         assert_eq!(29, unlocked.get_items().count());
         assert_eq!(3, unlocked.folders.len());
 
         for (_uuid, folder) in &unlocked.folders {
             let _overview = folder.overview().expect("folder overview");
+        }
+
+        for item in unlocked.get_items() {
+            let _overview = item.overview().expect("item overview");
+            let _decrypted = item.detail().expect("item detail");
         }
 
         let item_uuid = Uuid::parse_str("F2DB5DA3FCA64372A751E0E85C67A538").expect("uuid");

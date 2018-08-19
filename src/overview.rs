@@ -1,27 +1,29 @@
 use serde_json as json;
 
+use secstr::SecStr;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Overview {
-    pub title: Option<String>,
-    pub ainfo: Option<String>,
+    pub title: Option<SecStr>,
+    pub ainfo: Option<SecStr>,
     #[serde(rename = "URLs", default)]
     pub urls: Vec<URL>,
-    pub url: Option<String>,
+    pub url: Option<SecStr>,
     #[serde(default)]
-    pub tags: Vec<String>,
+    pub tags: Vec<SecStr>,
     pub ps: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct URL {
-    pub u: String,
+    pub u: SecStr,
 }
 
 impl Overview {
     // Parse an overview object from a JSON slice
-    pub fn from_slice(s: &[u8]) -> json::Result<Self> {
-        json::from_slice(s)
+    pub fn from_slice(s: &SecStr) -> json::Result<Self> {
+        json::from_slice(s.unsecure())
     }
 }

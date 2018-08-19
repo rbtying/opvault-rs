@@ -15,6 +15,7 @@ use std::result;
 use std::str::FromStr;
 
 use base64;
+use secstr::SecStr;
 use serde_json;
 
 use attachment::{self, Attachment, AttachmentData};
@@ -22,7 +23,7 @@ use crypto::{decrypt_data, hmac, verify_data};
 use detail::Detail;
 use opdata01;
 use overview::Overview;
-use {AttachmentIterator, Error, HmacKey, ItemKey, MasterKey, OverviewKey, Result, Uuid};
+use {AttachmentIterator, Error, HmacKey, ItemKey, Key, MasterKey, OverviewKey, Result, Uuid};
 
 /// These are the kinds of items that 1password knows about
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -78,12 +79,12 @@ impl FromStr for Category {
 pub struct ItemData {
     category: String,
     created: i64,
-    d: String,
+    d: SecStr,
     fave: Option<i64>,
     folder: Option<String>,
     hmac: String,
-    k: String,
-    o: String,
+    k: SecStr,
+    o: SecStr,
     trashed: Option<bool>,
     tx: i64,
     updated: i64,
@@ -94,6 +95,10 @@ macro_rules! update {
     ($s:expr, $name:expr, $field:expr) => {
         $s.input($name)?;
         $s.input($field.to_string().as_bytes())?;
+    };
+    (secure, $s:expr, $name:expr, $field:expr) => {
+        $s.input($name)?;
+        $s.input($field.unsecure())?;
     };
     (option, $s:expr, $name:expr, $field:expr) => {
         if let Some(ref x) = $field {
@@ -111,11 +116,11 @@ impl ItemData {
             // option is bound to lead to some duplication.
             update!(signer, b"category", self.category);
             update!(signer, b"created", self.created);
-            update!(signer, b"d", self.d);
+            update!(secure, signer, b"d", self.d);
             update!(option, signer, b"fave", self.fave);
             update!(option, signer, b"folder", self.folder);
-            update!(signer, b"k", self.k);
-            update!(signer, b"o", self.o);
+            update!(secure, signer, b"k", self.k);
+            update!(secure, signer, b"o", self.o);
             // Although this is boolean in the JSON, the HMAC is calculated with
             // this as an integer.
             update!(option, signer, b"trashed", self.trashed.map(|x| x as i32));
@@ -125,8 +130,9 @@ impl ItemData {
             Ok(())
         })?;
 
-        let expected_hmac = base64::decode(&self.hmac)?;
+        let expected_hmac = SecStr::new(base64::decode(&self.hmac)?);
 
+        // SecStr has constant-time string compare so this is OK.
         Ok(expected_hmac == actual_hmac)
     }
 }
@@ -136,11 +142,11 @@ impl ItemData {
 pub struct Item<'a> {
     pub category: Category,
     pub created: i64,
-    pub d: Vec<u8>,
+    pub d: SecStr,
     pub folder: Option<Uuid>,
     pub hmac: Vec<u8>,
-    pub k: Vec<u8>,
-    pub o: Vec<u8>,
+    pub k: SecStr,
+    pub o: SecStr,
     pub tx: i64,
     pub updated: i64,
     pub uuid: Uuid,
@@ -175,11 +181,11 @@ impl<'a> Item<'a> {
         Ok(Item {
             category: Category::from_str(&d.category)?,
             created: d.created,
-            d: base64::decode(&d.d)?,
+            d: SecStr::new(base64::decode(d.d.unsecure())?),
             folder: folder_uuid,
             hmac: base64::decode(&d.hmac)?,
-            k: base64::decode(&d.k)?,
-            o: base64::decode(&d.o)?,
+            k: SecStr::new(base64::decode(d.k.unsecure())?),
+            o: SecStr::new(base64::decode(d.o.unsecure())?),
             tx: d.tx,
             updated: d.updated,
             fave: d.fave,
@@ -194,14 +200,14 @@ impl<'a> Item<'a> {
     /// Decrypt this item's details
     pub fn detail(&self) -> Result<Detail> {
         let keys = self.item_key()?;
-        let raw = opdata01::decrypt(&self.d[..], keys.encryption(), keys.verification())?;
+        let raw = opdata01::decrypt(&self.d, &keys)?;
 
         let res = if self.category == Category::Login {
-            Detail::Login(serde_json::from_slice(&raw)?)
+            Detail::Login(serde_json::from_slice(raw.unsecure())?)
         } else if self.category == Category::Password {
-            Detail::Password(serde_json::from_slice(&raw)?)
+            Detail::Password(serde_json::from_slice(raw.unsecure())?)
         } else {
-            Detail::Generic(serde_json::from_slice(&raw)?)
+            Detail::Generic(serde_json::from_slice(raw.unsecure())?)
         };
 
         Ok(res)
@@ -209,25 +215,22 @@ impl<'a> Item<'a> {
 
     /// Decrypt the item's overview
     pub fn overview(&self) -> Result<Overview> {
-        let raw = opdata01::decrypt(
-            &self.o[..],
-            self.overview.encryption(),
-            self.overview.verification(),
-        )?;
+        let raw = opdata01::decrypt(&self.o, &self.overview)?;
         let res = Overview::from_slice(&raw)?;
 
         Ok(res)
     }
 
     fn item_key(&self) -> Result<ItemKey> {
-        if !verify_data(&self.k[..], self.master.verification())? {
+        if !verify_data(self.k.unsecure(), self.master.verification())? {
             return Err(Error::ItemError);
         }
 
-        let iv = &self.k[..16];
-        let keys = decrypt_data(&self.k[16..], self.master.encryption(), iv)?;
+        let iv = SecStr::from(&self.k.unsecure()[..16]);
+        let decrypted = decrypt_data(&self.k.unsecure()[16..80], self.master.encryption(), &iv)?;
+        let key = Key::new(&decrypted);
 
-        Ok(keys.into())
+        Ok(ItemKey { key })
     }
 
     pub fn get_attachment(&self, id: &Uuid) -> Option<Attachment> {

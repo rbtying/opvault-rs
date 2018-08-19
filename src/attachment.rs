@@ -13,6 +13,7 @@ use std::rc::Rc;
 use std::slice::Iter as SliceIter;
 
 use base64;
+use secstr::SecStr;
 use serde_json;
 
 use {opcldat, opdata01, ItemKey, OverviewKey, Result, Uuid};
@@ -25,7 +26,7 @@ pub struct AttachmentData {
     pub external: Option<bool>,
     pub updatedAt: i64,
     pub txTimestamp: i64,
-    pub overview: String,
+    pub overview: SecStr,
     pub createdAt: i64,
     pub uuid: Uuid,
 }
@@ -37,7 +38,7 @@ pub struct Attachment {
     pub external: Option<bool>,
     pub updated_at: i64,
     pub tx_timestamp: i64,
-    pub overview: Vec<u8>,
+    pub overview: SecStr,
     pub created_at: i64,
     pub uuid: Uuid,
     path: PathBuf,
@@ -52,7 +53,7 @@ impl Attachment {
         key: Rc<ItemKey>,
         overview_key: Rc<OverviewKey>,
     ) -> Result<Attachment> {
-        let overview = base64::decode(&d.overview)?;
+        let overview = SecStr::new(base64::decode(&d.overview.unsecure())?);
 
         Ok(Attachment {
             item: d.itemUUID,
@@ -70,16 +71,12 @@ impl Attachment {
     }
 
     /// Decrypt the attachment's overview data
-    pub fn decrypt_overview(&self) -> Result<Vec<u8>> {
-        opdata01::decrypt(
-            &self.overview[..],
-            self.overview_key.encryption(),
-            self.overview_key.verification(),
-        )
+    pub fn decrypt_overview(&self) -> Result<SecStr> {
+        opdata01::decrypt(&self.overview, &self.overview_key)
     }
 
     /// Decrypt the attachment's icon
-    pub fn decrypt_icon(&self) -> Result<Vec<u8>> {
+    pub fn decrypt_icon(&self) -> Result<SecStr> {
         // The content is just after the metadata, so we need to open the file
         // again and figure out where things are.
         let mut f = fs::File::open(&self.path)?;
@@ -87,18 +84,14 @@ impl Attachment {
 
         let icon_offset = 16 /* header */ + metadata.metadata_size;
 
-        let mut icon_data = vec![0u8; metadata.icon_size as usize];
+        let mut icon_data = SecStr::new(vec![0u8; metadata.icon_size as usize]);
         f.seek(SeekFrom::Start(u64::from(icon_offset)))?;
-        f.read_exact(&mut icon_data)?;
-        opdata01::decrypt(
-            &icon_data[..],
-            self.key.encryption(),
-            self.key.verification(),
-        )
+        f.read_exact(icon_data.unsecure_mut())?;
+        opdata01::decrypt(&icon_data, &self.key)
     }
 
     /// Decrypt the attachment's content
-    pub fn decrypt_content(&self) -> Result<Vec<u8>> {
+    pub fn decrypt_content(&self) -> Result<SecStr> {
         // The content is just after the metadata, so we need to open the file
         // again and figure out where things are.
         let mut f = fs::File::open(&self.path)?;
@@ -110,11 +103,8 @@ impl Attachment {
         let mut content_data = Vec::new();
         f.seek(SeekFrom::Start(content_offset as u64))?;
         f.read_to_end(&mut content_data)?;
-        opdata01::decrypt(
-            &content_data[..],
-            self.key.encryption(),
-            self.key.verification(),
-        )
+        let content_data = SecStr::new(content_data);
+        opdata01::decrypt(&content_data, &self.key)
     }
 }
 

@@ -5,42 +5,65 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use secstr::SecStr;
 use std::ops::Deref;
 
-pub type EncryptionKey = [u8];
-pub type HmacKey = [u8];
+#[derive(Debug)]
+pub struct EncryptionKey(pub SecStr);
+
+impl Deref for EncryptionKey {
+    type Target = SecStr;
+    fn deref(&self) -> &SecStr {
+        &self.0
+    }
+}
+
+#[derive(Debug)]
+pub struct HmacKey(pub SecStr);
+
+impl Deref for HmacKey {
+    type Target = SecStr;
+    fn deref(&self) -> &SecStr {
+        &self.0
+    }
+}
 
 /// This contains a pair of keys used for encryption and verification of the
 /// different aspects of the format.
 #[derive(Debug)]
 pub struct Key {
-    v: Vec<u8>,
+    encryption_key: EncryptionKey,
+    verification_key: HmacKey,
 }
 
 impl Key {
+    /// Construct a new [Key] from the securely concatenated key-pair.
+    pub fn new(concatenated_key: &SecStr) -> Self {
+        let data = concatenated_key.unsecure();
+        assert_eq!(data.len(), 64);
+        Key {
+            encryption_key: EncryptionKey(SecStr::from(&data[..32])),
+            verification_key: HmacKey(SecStr::from(&data[32..64])),
+        }
+    }
+
     /// Retrieve a reference to the key used for encryption.
     #[inline]
     pub fn encryption(&self) -> &EncryptionKey {
-        &self.v[..32]
+        &self.encryption_key
     }
 
     /// Retrieve a reference to the key used for verification (HMAC)
     #[inline]
     pub fn verification(&self) -> &HmacKey {
-        &self.v[32..64]
-    }
-}
-
-impl From<Vec<u8>> for Key {
-    fn from(v: Vec<u8>) -> Self {
-        Key { v }
+        &self.verification_key
     }
 }
 
 /// Alias we use to indicate we expect the master key
 #[derive(Debug)]
 pub struct MasterKey {
-    key: Key,
+    pub key: Key,
 }
 
 impl Deref for MasterKey {
@@ -51,16 +74,10 @@ impl Deref for MasterKey {
     }
 }
 
-impl From<Vec<u8>> for MasterKey {
-    fn from(v: Vec<u8>) -> Self {
-        Self { key: Key { v } }
-    }
-}
-
 /// Alias we use to indicate we expect the overview key
 #[derive(Debug)]
 pub struct OverviewKey {
-    key: Key,
+    pub key: Key,
 }
 
 impl Deref for OverviewKey {
@@ -71,16 +88,10 @@ impl Deref for OverviewKey {
     }
 }
 
-impl From<Vec<u8>> for OverviewKey {
-    fn from(v: Vec<u8>) -> Self {
-        Self { key: Key { v } }
-    }
-}
-
 /// Alias we use to indicate we expect an item's key
 #[derive(Debug)]
 pub struct ItemKey {
-    key: Key,
+    pub key: Key,
 }
 
 impl Deref for ItemKey {
@@ -88,11 +99,5 @@ impl Deref for ItemKey {
 
     fn deref(&self) -> &Key {
         &self.key
-    }
-}
-
-impl From<Vec<u8>> for ItemKey {
-    fn from(v: Vec<u8>) -> Self {
-        Self { key: Key { v } }
     }
 }

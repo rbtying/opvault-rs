@@ -10,4 +10,5 @@ serde_derive = "1.0"
 byteorder = "1.1"
 base64 = "0.9"
 rust-crypto = "^0.2"
+secstr = { version = "0.3", features = ["serde"] }
 uuid = { version = "0.5", features = ["use_std", "serde"] }

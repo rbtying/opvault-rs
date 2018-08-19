@@ -10,6 +10,9 @@ use std::io::{Cursor, Read};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use crypto::{decrypt_data, verify_data};
+
+use secstr::SecStr;
+use Key;
 use Result;
 
 /// The header for this kind of data
@@ -21,13 +24,13 @@ pub enum OpdataError {
     InvalidHmac,
 }
 
-pub fn decrypt(data: &[u8], decrypt_key: &[u8], mac_key: &[u8]) -> Result<Vec<u8>> {
-    let mut cursor = Cursor::new(data);
-
+pub fn decrypt(data: &SecStr, key: &Key) -> Result<SecStr> {
     // The first step is to hash the data (minus the MAC itself)
-    if !verify_data(data, mac_key)? {
+    if !verify_data(data.unsecure(), key.verification())? {
         return Err(super::Error::OpdataError(OpdataError::InvalidHmac));
     }
+
+    let mut cursor = Cursor::new(data.unsecure());
 
     // The data is intact, let's see whether it's well formed now and decrypt
     let mut header = [0u8; 8];
@@ -38,12 +41,13 @@ pub fn decrypt(data: &[u8], decrypt_key: &[u8], mac_key: &[u8]) -> Result<Vec<u8
     }
 
     let len = cursor.read_u64::<LittleEndian>()?;
-    let iv = &data[16..32];
+    let mut iv = SecStr::from(vec![0u8; 16]);
+    cursor.read_exact(iv.unsecure_mut())?;
 
-    let crypt_data = &data[32..data.len() - 32];
+    let crypt_data = &data.unsecure()[32..data.unsecure().len() - 32];
 
-    let decrypted = decrypt_data(crypt_data, decrypt_key, iv)?;
-    let unpadded: Vec<u8> = decrypted[crypt_data.len() - (len as usize)..].into();
+    let decrypted = decrypt_data(crypt_data, key.encryption(), &iv)?;
+    let unpadded = SecStr::from(&decrypted.unsecure()[crypt_data.len() - (len as usize)..]);
 
     Ok(unpadded)
 }
